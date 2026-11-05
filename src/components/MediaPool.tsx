@@ -9,13 +9,13 @@ import {
   Sliders,
   Trash2,
   Sparkles,
-  GripVertical,
 } from 'lucide-react';
 import { MediaItem } from '@/types';
 import { createSMPTEColorBars, createColorGradient } from '@/utils/testPatterns';
 
 interface MediaPoolProps {
   mediaList: MediaItem[];
+  outputCount: number; // 動的なアウトプット数 (1〜8)
   onAddMedia: (item: MediaItem) => void;
   onRemoveMedia: (id: string) => void;
   onAssignToChannel: (mediaId: string, channelId: number) => void;
@@ -23,6 +23,7 @@ interface MediaPoolProps {
 
 export const MediaPool: React.FC<MediaPoolProps> = ({
   mediaList,
+  outputCount = 4,
   onAddMedia,
   onRemoveMedia,
   onAssignToChannel,
@@ -60,13 +61,12 @@ export const MediaPool: React.FC<MediaPoolProps> = ({
             height: img.naturalHeight,
             fileSize: formatFileSize(file.size),
             format: ext,
-            duration: 5, // 静止画デフォルト表示秒数
+            duration: 5,
           };
           onAddMedia(item);
         };
         img.src = url;
       } else {
-        // 動画の長さを取得
         const tempVideo = document.createElement('video');
         tempVideo.onloadedmetadata = () => {
           const item: MediaItem = {
@@ -139,7 +139,6 @@ export const MediaPool: React.FC<MediaPoolProps> = ({
     }
   };
 
-  // ドラッグ開始ハンドラー
   const handleDragStart = (e: React.DragEvent, media: MediaItem) => {
     e.dataTransfer.setData('application/json', JSON.stringify(media));
     e.dataTransfer.effectAllowed = 'copy';
@@ -165,7 +164,7 @@ export const MediaPool: React.FC<MediaPoolProps> = ({
             {mediaList.length} ITEMS
           </span>
           <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline">
-            (各アウトプットのタイムラインへドラッグ＆ドロップ可能)
+            (各タイムラインへドラッグ＆ドロップ可能)
           </span>
         </div>
 
@@ -279,7 +278,7 @@ export const MediaPool: React.FC<MediaPoolProps> = ({
                 className="bg-surface border border-surface-border rounded-xl p-3 flex flex-col justify-between hover:border-zinc-500 transition group shadow-md cursor-grab active:cursor-grabbing hover:shadow-blue-500/10"
                 title="ドラッグしてアウトプットのタイムラインへ追加"
               >
-                {/* 上部: サムネイル + メタデータ + 削除ボタン */}
+                {/* サムネイル + メタデータ + 削除 */}
                 <div className="flex items-start gap-2.5">
                   <div className="w-16 h-12 bg-black rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 relative border border-zinc-800">
                     {media.type === 'video' ? (
@@ -328,20 +327,20 @@ export const MediaPool: React.FC<MediaPoolProps> = ({
                   </button>
                 </div>
 
-                {/* 下部: ルーティングセクション */}
+                {/* 動的ルーティングセクション (1〜8CHに対応) */}
                 <div className="mt-3 pt-2.5 border-t border-zinc-800/80 flex items-center justify-between gap-1">
                   <span className="text-[10px] text-zinc-400 font-mono font-bold flex-shrink-0">
                     ROUTE:
                   </span>
                   <div className="flex items-center gap-1 flex-wrap justify-end">
-                    {[1, 2, 3, 4].map((ch) => (
+                    {Array.from({ length: outputCount }, (_, i) => i + 1).map((ch) => (
                       <button
                         key={ch}
                         onClick={(e) => {
                           e.stopPropagation();
                           onAssignToChannel(media.id, ch);
                         }}
-                        className="px-2 py-0.5 text-[10px] font-mono font-bold rounded-md bg-zinc-800 hover:bg-blue-600 text-zinc-200 hover:text-white border border-zinc-700 hover:border-blue-500 transition shadow-sm"
+                        className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded-md bg-zinc-800 hover:bg-blue-600 text-zinc-200 hover:text-white border border-zinc-700 hover:border-blue-500 transition shadow-sm"
                         title={`Assign directly to Output ${ch}`}
                       >
                         CH{ch}

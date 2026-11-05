@@ -134,7 +134,7 @@ export const HardwareConfigModal: React.FC<HardwareConfigModalProps> = ({
                   onChange={(e) => setDraft((prev) => ({ ...prev, port: parseInt(e.target.value, 10) }))}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-zinc-200 font-mono outline-none focus:border-blue-500"
                 >
-                  {[1, 2, 3, 4].map((p) => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((p) => (
                     <option key={p} value={p}>
                       SDI Out {p} (Port {p})
                     </option>

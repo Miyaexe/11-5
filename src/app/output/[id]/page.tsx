@@ -191,7 +191,7 @@ export default function OutputWindow({ params }: OutputPageProps) {
           <Monitor className="w-3.5 h-3.5 text-cyan-400" />
           <span className="text-zinc-500">SOURCE:</span>
           <div className="flex items-center gap-1 bg-zinc-900 px-1 py-0.5 rounded border border-zinc-700">
-            {[1, 2, 3, 4].map((ch) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((ch) => (
               <button
                 key={ch}
                 onClick={() => setSelectedChannelId(ch)}

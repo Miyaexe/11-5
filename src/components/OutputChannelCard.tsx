@@ -297,10 +297,11 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
               className="bg-transparent text-cyan-300 font-bold outline-none cursor-pointer"
               title="送出先ウィンドウを選択"
             >
-              <option value={1} className="bg-zinc-900 text-white">Win 1</option>
-              <option value={2} className="bg-zinc-900 text-white">Win 2</option>
-              <option value={3} className="bg-zinc-900 text-white">Win 3</option>
-              <option value={4} className="bg-zinc-900 text-white">Win 4</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((w) => (
+                <option key={w} value={w} className="bg-zinc-900 text-white">
+                  Win {w}
+                </option>
+              ))}
             </select>
           </div>
 

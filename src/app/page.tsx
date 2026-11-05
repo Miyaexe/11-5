@@ -8,6 +8,9 @@ import {
   Square,
   Cpu,
   Radio,
+  Sliders,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import { MediaItem, OutputChannelState, TimelineClip } from '@/types';
 import { OutputChannelCard } from '@/components/OutputChannelCard';
@@ -17,117 +20,47 @@ import { syncChannel } from '@/utils/broadcastSync';
 import { createSMPTEColorBars, createColorGradient } from '@/utils/testPatterns';
 import { hardwareBridge } from '@/utils/hardwareBridge';
 
+// 1〜8チャンネルの初期データ生成関数
+function createInitialChannels(): OutputChannelState[] {
+  return Array.from({ length: 8 }, (_, i) => {
+    const id = i + 1;
+    const isDeckLink = id <= 4;
+    return {
+      id,
+      name: `OUTPUT ${id}`,
+      assignedMediaId: null,
+      playlist: [],
+      activeClipIndex: 0,
+      autoAdvance: true,
+      isPlaying: false,
+      currentTime: 0,
+      duration: 0,
+      volume: 1,
+      isMuted: false,
+      isLoop: true,
+      isBlackout: false,
+      aspectRatio: 'contain',
+      targetWindowId: id,
+      hardwareOutput: {
+        enabled: true,
+        brand: isDeckLink ? 'Blackmagic DeckLink' : 'AJA KONA',
+        model: isDeckLink ? 'DeckLink Quad 2' : 'AJA KONA 5 (12G-SDI)',
+        port: id,
+        videoStandard: '1080p59.94',
+        colorFormat: '10-bit YUV 4:2:2',
+        status: 'standby',
+        genlock: 'Ref In',
+      },
+    };
+  });
+}
+
 export default function PlayoutController() {
-  const [channels, setChannels] = useState<OutputChannelState[]>([
-    {
-      id: 1,
-      name: 'OUTPUT 1',
-      assignedMediaId: null,
-      playlist: [],
-      activeClipIndex: 0,
-      autoAdvance: true,
-      isPlaying: false,
-      currentTime: 0,
-      duration: 0,
-      volume: 1,
-      isMuted: false,
-      isLoop: true,
-      isBlackout: false,
-      aspectRatio: 'contain',
-      targetWindowId: 1,
-      hardwareOutput: {
-        enabled: true,
-        brand: 'Blackmagic DeckLink',
-        model: 'DeckLink Duo 2',
-        port: 1,
-        videoStandard: '1080p59.94',
-        colorFormat: '10-bit YUV 4:2:2',
-        status: 'standby',
-        genlock: 'Ref In',
-      },
-    },
-    {
-      id: 2,
-      name: 'OUTPUT 2',
-      assignedMediaId: null,
-      playlist: [],
-      activeClipIndex: 0,
-      autoAdvance: true,
-      isPlaying: false,
-      currentTime: 0,
-      duration: 0,
-      volume: 1,
-      isMuted: false,
-      isLoop: true,
-      isBlackout: false,
-      aspectRatio: 'contain',
-      targetWindowId: 2,
-      hardwareOutput: {
-        enabled: true,
-        brand: 'Blackmagic DeckLink',
-        model: 'DeckLink Duo 2',
-        port: 2,
-        videoStandard: '1080p59.94',
-        colorFormat: '10-bit YUV 4:2:2',
-        status: 'standby',
-        genlock: 'Ref In',
-      },
-    },
-    {
-      id: 3,
-      name: 'OUTPUT 3',
-      assignedMediaId: null,
-      playlist: [],
-      activeClipIndex: 0,
-      autoAdvance: true,
-      isPlaying: false,
-      currentTime: 0,
-      duration: 0,
-      volume: 1,
-      isMuted: false,
-      isLoop: true,
-      isBlackout: false,
-      aspectRatio: 'contain',
-      targetWindowId: 3,
-      hardwareOutput: {
-        enabled: true,
-        brand: 'AJA KONA',
-        model: 'AJA KONA 5 (12G-SDI)',
-        port: 1,
-        videoStandard: '1080p59.94',
-        colorFormat: '10-bit YUV 4:2:2',
-        status: 'standby',
-        genlock: 'Ref In',
-      },
-    },
-    {
-      id: 4,
-      name: 'OUTPUT 4',
-      assignedMediaId: null,
-      playlist: [],
-      activeClipIndex: 0,
-      autoAdvance: true,
-      isPlaying: false,
-      currentTime: 0,
-      duration: 0,
-      volume: 1,
-      isMuted: false,
-      isLoop: true,
-      isBlackout: false,
-      aspectRatio: 'contain',
-      targetWindowId: 4,
-      hardwareOutput: {
-        enabled: true,
-        brand: 'AJA KONA',
-        model: 'AJA KONA 5 (12G-SDI)',
-        port: 2,
-        videoStandard: '1080p59.94',
-        colorFormat: '10-bit YUV 4:2:2',
-        status: 'standby',
-        genlock: 'Ref In',
-      },
-    },
-  ]);
+  // アウトプット数（1〜8、デフォルト4）
+  const [outputCount, setOutputCount] = useState<number>(4);
+
+  // 1〜8チャンネルの全状態を保持（動的切替時も各チャンネルの設定を保持）
+  const [channels, setChannels] = useState<OutputChannelState[]>(createInitialChannels);
 
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
   const [timecode, setTimecode] = useState<string>('00:00:00;00');
@@ -140,7 +73,7 @@ export default function PlayoutController() {
     return () => unsub();
   }, []);
 
-  // 初期ロード
+  // 初期ロード時にデフォルト素材を追加し、CH1のタイムラインに登録
   useEffect(() => {
     const barsUrl = createSMPTEColorBars();
     const gradUrl = createColorGradient();
@@ -320,7 +253,7 @@ export default function PlayoutController() {
   };
 
   const playAll = () => {
-    channels.forEach((ch) => {
+    channels.slice(0, outputCount).forEach((ch) => {
       if (ch.assignedMediaId) {
         updateChannel(ch.id, { isPlaying: true });
       }
@@ -328,8 +261,11 @@ export default function PlayoutController() {
   };
 
   const pauseAll = () => {
-    channels.forEach((ch) => updateChannel(ch.id, { isPlaying: false }));
+    channels.slice(0, outputCount).forEach((ch) => updateChannel(ch.id, { isPlaying: false }));
   };
+
+  // 表示するチャンネル（選択されたアウトプット数分）
+  const activeChannels = channels.slice(0, outputCount);
 
   return (
     <div className="min-h-screen bg-background flex flex-col select-none text-zinc-100">
@@ -345,10 +281,9 @@ export default function PlayoutController() {
               <h1 className="text-sm font-extrabold tracking-wider uppercase text-zinc-100 font-mono">
                 PRO PLAYOUT CONTROLLER
               </h1>
-              {/* SDI Hardware インジケーター */}
               <span className="text-[10px] bg-blue-950/80 text-blue-300 border border-blue-700 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1">
                 <Cpu className="w-2.5 h-2.5" />
-                DECKLINK & AJA KONA SDI
+                1-8CH MATRIX (SDI / NTV2)
               </span>
               <span className="text-[10px] bg-red-950/80 text-red-400 border border-red-800 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
@@ -356,13 +291,59 @@ export default function PlayoutController() {
               </span>
             </div>
             <p className="text-[10px] text-zinc-400 font-mono">
-              BLACKMAGIC DESKTOP VIDEO & AJA NTV2 BROADCAST ARCHITECTURE
+              DYNAMIC 1-8 OUTPUTS • DECKLINK & AJA KONA ARCHITECTURE
             </p>
           </div>
         </div>
 
+        {/* 【アウトプット数自由選択セレクター (1〜8 CH)】 */}
+        <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-lg border border-surface-border font-mono">
+          <span className="text-xs text-zinc-400 font-bold flex items-center gap-1">
+            <Sliders className="w-3.5 h-3.5 text-blue-400" />
+            OUTPUTS:
+          </span>
+
+          {/* 増減ボタン */}
+          <div className="flex items-center gap-1 bg-zinc-900 px-1 py-0.5 rounded border border-zinc-800">
+            <button
+              onClick={() => setOutputCount((c) => Math.max(1, c - 1))}
+              className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+              title="Decrease Outputs"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
+            <span className="w-6 text-center text-xs font-bold text-cyan-400 font-mono">
+              {outputCount}
+            </span>
+            <button
+              onClick={() => setOutputCount((c) => Math.min(8, c + 1))}
+              className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+              title="Increase Outputs"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* クイック選択プリセット (1, 2, 4, 6, 8) */}
+          <div className="flex items-center gap-1 pl-1">
+            {[1, 2, 4, 6, 8].map((num) => (
+              <button
+                key={num}
+                onClick={() => setOutputCount(num)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition font-mono ${
+                  outputCount === num
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'
+                }`}
+              >
+                {num}CH
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* タイムコード表示 */}
-        <div className="flex items-center gap-2.5 bg-zinc-950 px-3.5 py-1.5 rounded-lg border border-surface-border font-mono shadow-inner">
+        <div className="hidden lg:flex items-center gap-2.5 bg-zinc-950 px-3.5 py-1.5 rounded-lg border border-surface-border font-mono shadow-inner">
           <Clock className="w-4 h-4 text-zinc-500" />
           <span className="text-xs text-zinc-400">JST / TC:</span>
           <span className="text-sm font-bold text-broadcast-green tracking-wider font-mono">
@@ -391,15 +372,28 @@ export default function PlayoutController() {
             </button>
           </div>
 
-          <MultiScreenManager onOpenChannelWindow={handleOpenOutputWindow} />
+          <MultiScreenManager
+            outputCount={outputCount}
+            onOpenChannelWindow={handleOpenOutputWindow}
+          />
         </div>
       </header>
 
       {/* メインエリア */}
       <main className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
-        {/* 上段: 4つの個別アウトプットチャンネル */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {channels.map((channel) => {
+        {/* 上段: 動的に選択されたアウトプットチャンネル (1〜8) */}
+        <div
+          className={`grid gap-4 ${
+            outputCount === 1
+              ? 'grid-cols-1'
+              : outputCount === 2
+              ? 'grid-cols-1 xl:grid-cols-2'
+              : outputCount <= 4
+              ? 'grid-cols-1 xl:grid-cols-2'
+              : 'grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3'
+          }`}
+        >
+          {activeChannels.map((channel) => {
             const assignedMedia = mediaList.find((m) => m.id === channel.assignedMediaId) || null;
             return (
               <OutputChannelCard
@@ -413,10 +407,11 @@ export default function PlayoutController() {
           })}
         </div>
 
-        {/* 下段: メディアプール */}
+        {/* 下段: メディアプール（動的なアウトプット数に対応） */}
         <div className="flex-1 min-h-[300px]">
           <MediaPool
             mediaList={mediaList}
+            outputCount={outputCount}
             onAddMedia={handleAddMedia}
             onRemoveMedia={handleRemoveMedia}
             onAssignToChannel={handleAssignMedia}
