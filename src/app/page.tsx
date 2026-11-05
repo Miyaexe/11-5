@@ -6,7 +6,8 @@ import {
   Clock,
   Play,
   Square,
-  Sparkles,
+  Cpu,
+  Radio,
 } from 'lucide-react';
 import { MediaItem, OutputChannelState, TimelineClip } from '@/types';
 import { OutputChannelCard } from '@/components/OutputChannelCard';
@@ -14,6 +15,7 @@ import { MediaPool } from '@/components/MediaPool';
 import { MultiScreenManager } from '@/components/MultiScreenManager';
 import { syncChannel } from '@/utils/broadcastSync';
 import { createSMPTEColorBars, createColorGradient } from '@/utils/testPatterns';
+import { hardwareBridge } from '@/utils/hardwareBridge';
 
 export default function PlayoutController() {
   const [channels, setChannels] = useState<OutputChannelState[]>([
@@ -33,6 +35,16 @@ export default function PlayoutController() {
       isBlackout: false,
       aspectRatio: 'contain',
       targetWindowId: 1,
+      hardwareOutput: {
+        enabled: true,
+        brand: 'Blackmagic DeckLink',
+        model: 'DeckLink Duo 2',
+        port: 1,
+        videoStandard: '1080p59.94',
+        colorFormat: '10-bit YUV 4:2:2',
+        status: 'standby',
+        genlock: 'Ref In',
+      },
     },
     {
       id: 2,
@@ -50,6 +62,16 @@ export default function PlayoutController() {
       isBlackout: false,
       aspectRatio: 'contain',
       targetWindowId: 2,
+      hardwareOutput: {
+        enabled: true,
+        brand: 'Blackmagic DeckLink',
+        model: 'DeckLink Duo 2',
+        port: 2,
+        videoStandard: '1080p59.94',
+        colorFormat: '10-bit YUV 4:2:2',
+        status: 'standby',
+        genlock: 'Ref In',
+      },
     },
     {
       id: 3,
@@ -67,6 +89,16 @@ export default function PlayoutController() {
       isBlackout: false,
       aspectRatio: 'contain',
       targetWindowId: 3,
+      hardwareOutput: {
+        enabled: true,
+        brand: 'AJA KONA',
+        model: 'AJA KONA 5 (12G-SDI)',
+        port: 1,
+        videoStandard: '1080p59.94',
+        colorFormat: '10-bit YUV 4:2:2',
+        status: 'standby',
+        genlock: 'Ref In',
+      },
     },
     {
       id: 4,
@@ -84,13 +116,31 @@ export default function PlayoutController() {
       isBlackout: false,
       aspectRatio: 'contain',
       targetWindowId: 4,
+      hardwareOutput: {
+        enabled: true,
+        brand: 'AJA KONA',
+        model: 'AJA KONA 5 (12G-SDI)',
+        port: 2,
+        videoStandard: '1080p59.94',
+        colorFormat: '10-bit YUV 4:2:2',
+        status: 'standby',
+        genlock: 'Ref In',
+      },
     },
   ]);
 
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
   const [timecode, setTimecode] = useState<string>('00:00:00;00');
+  const [isBridgeOnline, setIsBridgeOnline] = useState(false);
 
-  // 初期ロード時にデフォルト素材を追加し、CH1のタイムラインに登録
+  useEffect(() => {
+    const unsub = hardwareBridge.subscribe((connected) => {
+      setIsBridgeOnline(connected);
+    });
+    return () => unsub();
+  }, []);
+
+  // 初期ロード
   useEffect(() => {
     const barsUrl = createSMPTEColorBars();
     const gradUrl = createColorGradient();
@@ -116,7 +166,6 @@ export default function PlayoutController() {
 
     setMediaList([initialBars, initialGrad]);
 
-    // CH1に初期でカラーバーをタイムラインに追加
     const clip1: TimelineClip = {
       instanceId: `clip_init_1`,
       mediaId: initialBars.id,
@@ -150,7 +199,7 @@ export default function PlayoutController() {
     );
   }, []);
 
-  // タイムコード更新（29.97fps）
+  // タイムコード更新
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -163,7 +212,7 @@ export default function PlayoutController() {
     return () => clearInterval(timer);
   }, []);
 
-  // BroadcastChannel 同期応答
+  // BroadcastChannel 同期
   useEffect(() => {
     const unsubscribe = syncChannel.subscribe((msg) => {
       if (msg.type === 'SYNC_STATE' && msg.payload?.requestSync) {
@@ -177,7 +226,6 @@ export default function PlayoutController() {
     return () => unsubscribe();
   }, [channels, mediaList]);
 
-  // チャンネル状態更新
   const updateChannel = (channelId: number, updated: Partial<OutputChannelState>) => {
     setChannels((prev) =>
       prev.map((ch) => {
@@ -207,7 +255,6 @@ export default function PlayoutController() {
     );
   };
 
-  // メディアプールからチャンネルへの直接アサイン（タイムラインへも追加）
   const handleAssignMedia = (mediaId: string, channelId: number) => {
     const media = mediaList.find((m) => m.id === mediaId) || null;
     if (!media) return;
@@ -259,7 +306,6 @@ export default function PlayoutController() {
     );
   };
 
-  // 任意の送出先ウィンドウを開く
   const handleOpenOutputWindow = (targetWindowId: number, sourceChannelId?: number) => {
     const url = `/output/${targetWindowId}`;
     const windowFeatures = 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no';
@@ -299,13 +345,18 @@ export default function PlayoutController() {
               <h1 className="text-sm font-extrabold tracking-wider uppercase text-zinc-100 font-mono">
                 PRO PLAYOUT CONTROLLER
               </h1>
+              {/* SDI Hardware インジケーター */}
+              <span className="text-[10px] bg-blue-950/80 text-blue-300 border border-blue-700 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1">
+                <Cpu className="w-2.5 h-2.5" />
+                DECKLINK & AJA KONA SDI
+              </span>
               <span className="text-[10px] bg-red-950/80 text-red-400 border border-red-800 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
                 ON AIR
               </span>
             </div>
             <p className="text-[10px] text-zinc-400 font-mono">
-              TIMELINE DRAG & DROP • HORIZONTAL AUDIO • LARGE TRACE SCOPE
+              BLACKMAGIC DESKTOP VIDEO & AJA NTV2 BROADCAST ARCHITECTURE
             </p>
           </div>
         </div>
@@ -346,7 +397,7 @@ export default function PlayoutController() {
 
       {/* メインエリア */}
       <main className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
-        {/* 上段: 4つの個別アウトプットチャンネル（プレビュー + 大型線表示スコープ + 横向きオーディオメーター + タイムライン） */}
+        {/* 上段: 4つの個別アウトプットチャンネル */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {channels.map((channel) => {
             const assignedMedia = mediaList.find((m) => m.id === channel.assignedMediaId) || null;
@@ -362,7 +413,7 @@ export default function PlayoutController() {
           })}
         </div>
 
-        {/* 下段: メディアプール（ドラッグ＆ドロップ対応） */}
+        {/* 下段: メディアプール */}
         <div className="flex-1 min-h-[300px]">
           <MediaPool
             mediaList={mediaList}

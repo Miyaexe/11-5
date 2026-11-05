@@ -34,6 +34,16 @@ export default function OutputWindow({ params }: OutputPageProps) {
     isBlackout: false,
     aspectRatio: 'contain',
     targetWindowId: initialWindowId,
+    hardwareOutput: {
+      enabled: false,
+      brand: 'Window',
+      model: 'Virtual Window',
+      port: initialWindowId,
+      videoStandard: '1080p59.94',
+      colorFormat: '10-bit YUV 4:2:2',
+      status: 'offline',
+      genlock: 'Internal',
+    },
   });
   const [showControls, setShowControls] = useState(false);
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);

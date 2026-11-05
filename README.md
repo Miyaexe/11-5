@@ -1,43 +1,49 @@
 # 🎥 Pro Video Playout & Multiview System
 
 Vercelに直接デプロイ可能な、Web技術（Next.js + React + WebGL + Web Audio API）によるプロフェッショナル向けマルチチャンネル映像送出・監視システム。
+**Blackmagic Design DeckLinkシリーズ** および **AJA KONAシリーズ** のSDI/HDMI送出アーキテクチャに対応。
 
 ![Broadcasting Dark Theme](https://img.shields.io/badge/Platform-Vercel%20%2F%20Web-000000?style=flat-square&logo=vercel)
+![DeckLink Support](https://img.shields.io/badge/Blackmagic-DeckLink%20SDI-blue?style=flat-square)
+![AJA Support](https://img.shields.io/badge/AJA-KONA%20SDI-red?style=flat-square)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
 ![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8?style=flat-square&logo=tailwind-css)
 
 ---
 
 ## 🌟 主な機能
 
-### 1. 映像素材の取り込み（Media Pool）
-- **ローカル動画・静止画の取り込み**: MP4, WebM, MOV, PNG, JPG などをドラッグ＆ドロップまたはファイル選択で一括追加
-- **内蔵テストパターン**: SMPTE 75% カラーバー（1kHz テストトーン付き）、フルスペクトラムグラデーション
-- **ライブ映像入力**: Webカメラ、HDMIキャプチャカード、USBキャプチャデバイスからのリアルタイム映像取り込み（`getUserMedia`）
-- **ワンクリックマトリクスルーティング**: 素材カードの `CH1` 〜 `CH4` ボタンを押すだけで対象チャンネルへ瞬時に送出割り当て
+### 1. 放送用ハードウェア送出（Blackmagic DeckLink ＆ AJA KONA 対応）
+- **Blackmagic Design DeckLink**:
+  - 対応モデル: DeckLink Duo 2, Quad 2, 8K Pro, 4K Extreme 12G, Mini Monitor 4K, UltraStudio 4K Mini 等
+  - 各アウトプットから独立した SDI 1〜4 ポートへ直接ルーティング
+- **AJA KONA**:
+  - 対応モデル: AJA KONA 5 (12G-SDI), KONA 4 (3G-SDI), KONA IP (SMPTE 2110), KONA 1, Io 4K Plus 等
+  - 独立した SDI Out 1〜4 ポートへ割り当て
+- **放送規格・色差フォーマット設定**:
+  - ビデオ規格: 1080p59.94, 1080p60, 1080i59.94, 2160p59.94 (4K), 720p59.94
+  - ピクセルフォーマット: 10-bit YUV 4:2:2（放送マスター標準）, 8-bit YUV 4:2:2, RGB 4:4:4
+  - 外部同期（Genlock）: Ref In（BB / 三値シンク）, Internal, Free Run
+- **ローカルハードウェアブリッジ**:
+  PCローカルに搭載されたDeckLink / AJAカードとWebコントローラーを仲介する `bridge/decklink-aja-bridge.js` を同梱。
 
-### 2. 1〜4つの個別アウトプット（Output Channels 1 ~ 4）
-- **独立プレビュー＆コントロール**: 4チャンネルそれぞれで再生・一時停止・先頭戻し・ループ・音量調整・シークが可能
-- **FTB (Fade To Black)**: 現場での緊急停止や演出切り替え用のワンタッチ黒フェードアウト機能
-- **個別ウィンドウ送出（ポップアウト）**:
-  - `CH1`〜`CH4` の専用アウトプットウィンドウ（`/output/1` 〜 `/output/4`）をポップアップ生成
-  - プロジェクターや外部サブモニターへ配置してダブルクリックでクリーンな全画面送出が可能
-  - `BroadcastChannel` によるメインコントローラーと出力ウィンドウ間の超低遅延（ミリ秒未満）双方向同期
-- **マルチモニター検出（Window Management API）**: 接続されている外部ディスプレイを自動検出し、対象ディスプレイへ全画面ウィンドウを直接展開
+### 2. アウトプットごとのシーケンス・タイムライン（ドラッグ＆ドロップ対応）
+- 各アウトプット（CH 1 〜 CH 4）に専用のタイムラインレーンを搭載。
+- メディアプール内の動画・画像をドラッグ＆ドロップで追加し、プレイリスト形式で連続送出可能。
+- AUTO ADVANCE（次クリップへの自動切り替え）ON/OFF機能。
 
-### 3. ベクトルスコープ（Vectorscope）
-- **高精度リアルタイム色差解析**: 映像フレームから Y, Cb (B-Y), Cr (R-Y) をサンプリングして円形スコープ上にプロット
-- **SMPTE レティクル**: Rec.709 / Rec.601 準拠の 75% カラーターゲット（Red, Magenta, Blue, Cyan, Green, Yellow）のボックス表示
-- **スキントーンライン（I軸 / Q軸）**: 人物の肌色調整のための基準ガイドライン（123°）
-- **オシロ管面エフェクト**: 燐光グリーン（Phosphor Green）、アンバー（Amber）、シアン（Cyan）、実色（True Color）のカラーモード切替
-- **ゲイン調整**: 0.5x 〜 4.0x のズームイン/アウト
+### 3. 大型・線表示ベクトルスコープ（Large Trace Scope）
+- 直径約190pxの大型円形管面オシロスコープ。
+- 電子ビームが走る滑らかな「線表示（Vector Trace Line）」描画。
+- 75% SMPTEカラーボックス（R, G, B, Cy, Mg, Yl）、スキントーンライン（I軸）、4色フォスファー切替。
 
-### 4. オーディオモニター（Audio Monitor）
-- **デュアルチャンネル（L / R）**: Web Audio API（`AnalyserNode`）によるリアルタイム RMS & ピーク音量解析
-- **dBFS スケール**: -inf 〜 0dB の正確なデシベル表示
-- **Peak Hold & クリップ検知**: 最大音量を一定時間維持するピークバー、および 0dB 到達時に赤く点灯する CLIP インジケーター
-- **モニター音声制御**: モニター音声のワンクリック LIVE / MUTED 切替
+### 4. 横向きオーディオメーター（Horizontal PPM / VU Meter）
+- L / R ステレオチャンネルの横型LEDセグメントバー。
+- -48dB 〜 0dBFS 目盛り、Peak Hold、CLIP OVER 警告ランプ。
+
+### 5. 任意アウトプット先セレクター
+- 送出先ウィンドウ番号（Window 1〜4）を任意に選択可能。
+- ポップアップした送出ウィンドウ側でも、画面上部のメニューから表示するチャンネル（CH 1〜4）をいつでもワンタッチ切替可能。
 
 ---
 
@@ -49,18 +55,7 @@ npm run dev
 ```
 ブラウザで [http://localhost:3000](http://localhost:3000) を開きます。
 
----
-
-## 🌐 Vercelへのデプロイ方法
-
-### 方法A: GitHub経由（おすすめ）
-1. 本フォルダのコードを GitHub リポジトリにプッシュします。
-2. [Vercel](https://vercel.com) にログインし、「**Add New... > Project**」を選択します。
-3. リポジトリを選択し、「**Deploy**」ボタンをクリックするだけで、数十秒で全世界へ公開されます。
-
-### 方法B: Vercel CLI を使って直接デプロイ
+### DeckLink / AJA 実機カード送出ブリッジの起動（任意）
 ```bash
-# Vercel CLI の実行
-npx vercel
+node bridge/decklink-aja-bridge.js
 ```
-対話形式のプロンプトに沿って設定を完了すると、ワンコマンドで即座に本番URLが発行されます。

@@ -14,11 +14,15 @@ import {
   Image as ImageIcon,
   Film,
   Monitor,
+  Cpu,
+  Settings2,
 } from 'lucide-react';
-import { OutputChannelState, MediaItem, TimelineClip } from '@/types';
+import { OutputChannelState, MediaItem, TimelineClip, HardwareOutputConfig } from '@/types';
 import { Vectorscope } from './Vectorscope';
 import { AudioMonitor } from './AudioMonitor';
 import { OutputTimeline } from './OutputTimeline';
+import { HardwareConfigModal } from './HardwareConfigModal';
+import { hardwareBridge } from '@/utils/hardwareBridge';
 
 interface OutputChannelCardProps {
   channel: OutputChannelState;
@@ -38,6 +42,15 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [activeMediaElement, setActiveMediaElement] = useState<HTMLVideoElement | HTMLImageElement | null>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isBridgeConnected, setIsBridgeConnected] = useState(false);
+
+  useEffect(() => {
+    const unsub = hardwareBridge.subscribe((connected) => {
+      setIsBridgeConnected(connected);
+    });
+    return () => unsub();
+  }, []);
 
   const isImageMedia =
     assignedMedia?.type === 'image' || assignedMedia?.type === 'test-pattern';
@@ -89,7 +102,7 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
     video.muted = channel.isMuted;
   }, [channel.volume, channel.isMuted, isImageMedia]);
 
-  // 静止画のタイマー進行（自動アドバンス）
+  // 静止画のタイマー進行
   useEffect(() => {
     if (!isImageMedia || !channel.isPlaying || !channel.autoAdvance) return;
     const currentClip = channel.playlist[channel.activeClipIndex];
@@ -111,7 +124,6 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
     });
   };
 
-  // 次のクリップへ進行
   const handleNextClip = () => {
     if (channel.playlist.length === 0) return;
     const nextIdx = (channel.activeClipIndex + 1) % channel.playlist.length;
@@ -157,7 +169,6 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
     }
   };
 
-  // タイムラインへのクリップ追加
   const handleAddClipToTimeline = (media: MediaItem) => {
     const newClip: TimelineClip = {
       instanceId: `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -184,7 +195,6 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
     });
   };
 
-  // タイムラインからクリップ選択
   const handleSelectClip = (index: number) => {
     const clip = channel.playlist[index];
     if (clip) {
@@ -197,7 +207,6 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
     }
   };
 
-  // タイムラインからクリップ削除
   const handleRemoveClip = (instanceId: string) => {
     const nextPlaylist = channel.playlist.filter((c) => c.instanceId !== instanceId);
     let nextIdx = channel.activeClipIndex;
@@ -213,9 +222,16 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
     });
   };
 
+  const handleSaveHardwareConfig = (config: HardwareOutputConfig) => {
+    onUpdateChannel({ hardwareOutput: config });
+    hardwareBridge.sendHardwareConfig(channel.id, config);
+  };
+
+  const hw = channel.hardwareOutput;
+
   return (
     <div className="flex flex-col bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl hover:border-zinc-700 transition">
-      {/* チャンネルヘッダー（タリー、CH名、アサイン素材名、任意送出先セレクター、OUTボタン） */}
+      {/* チャンネルヘッダー（タリー、CH名、アサイン素材名、ハードウェア送出設定、OUTボタン） */}
       <div className="flex items-center justify-between px-3 py-2 bg-surface-card border-b border-surface-border gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div
@@ -234,18 +250,45 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
             OUTPUT {channel.id}
           </span>
           <span
-            className="text-[10px] text-zinc-400 truncate max-w-[140px] font-mono"
+            className="text-[10px] text-zinc-400 truncate max-w-[130px] font-mono"
             title={assignedMedia?.name}
           >
             {assignedMedia ? assignedMedia.name : '(NO SIGNAL)'}
           </span>
+
+          {/* ハードウェアSDIバッジ（DeckLink / AJA） */}
+          {hw?.enabled && hw.brand !== 'Window' && (
+            <span
+              onClick={() => setIsConfigModalOpen(true)}
+              className="cursor-pointer px-1.5 py-0.5 rounded text-[9px] font-mono font-bold flex items-center gap-1 bg-blue-950 text-blue-300 border border-blue-700 hover:bg-blue-900 transition"
+              title={`${hw.brand} ${hw.model} (Port ${hw.port})`}
+            >
+              <Cpu className="w-2.5 h-2.5" />
+              <span>{hw.brand === 'Blackmagic DeckLink' ? 'DECKLINK' : 'KONA'} SDI{hw.port}</span>
+              <span className="text-zinc-500">•</span>
+              <span className="text-zinc-400">{hw.videoStandard}</span>
+            </span>
+          )}
         </div>
 
-        {/* 任意のアウトプット先ウィンドウ選択 ＆ 送出ボタン */}
+        {/* 送出先コントロール & ハードウェア設定 */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* DeckLink / AJA ハードウェア設定ボタン */}
+          <button
+            onClick={() => setIsConfigModalOpen(true)}
+            className={`p-1 rounded border transition ${
+              hw?.enabled && hw.brand !== 'Window'
+                ? 'bg-blue-950/80 border-blue-600 text-blue-300'
+                : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }`}
+            title="Configure Blackmagic DeckLink / AJA KONA SDI Output"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* 送出先ウィンドウ選択 */}
           <div className="flex items-center gap-1 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-700 text-[10px] font-mono">
             <Monitor className="w-3 h-3 text-zinc-400" />
-            <span className="text-zinc-500 hidden sm:inline">DEST:</span>
             <select
               value={channel.targetWindowId || channel.id}
               onChange={(e) =>
@@ -254,10 +297,10 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
               className="bg-transparent text-cyan-300 font-bold outline-none cursor-pointer"
               title="送出先ウィンドウを選択"
             >
-              <option value={1} className="bg-zinc-900 text-white">Window 1</option>
-              <option value={2} className="bg-zinc-900 text-white">Window 2</option>
-              <option value={3} className="bg-zinc-900 text-white">Window 3</option>
-              <option value={4} className="bg-zinc-900 text-white">Window 4</option>
+              <option value={1} className="bg-zinc-900 text-white">Win 1</option>
+              <option value={2} className="bg-zinc-900 text-white">Win 2</option>
+              <option value={3} className="bg-zinc-900 text-white">Win 3</option>
+              <option value={4} className="bg-zinc-900 text-white">Win 4</option>
             </select>
           </div>
 
@@ -276,7 +319,7 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
 
       {/* メインモニタリングエリア（プレビュー + 大型ベクトルスコープ + 横型オーディオメーター） */}
       <div className="p-3 flex flex-col lg:flex-row gap-3 bg-surface-card/60">
-        {/* 左側: プレビュー画面 ＆ 再生操作 ＆ 横向きオーディオメーター */}
+        {/* 左側: プレビュー画面 ＆ コントローラー ＆ 横向きオーディオメーター */}
         <div className="flex-1 flex flex-col justify-between min-w-0 gap-2">
           {/* プレビュー画面 (16:9) */}
           <div
@@ -355,7 +398,6 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
               </div>
             )}
 
-            {/* 全画面ボタン */}
             <button
               onClick={toggleFullscreen}
               className="absolute bottom-1.5 right-1.5 p-1 rounded bg-black/75 hover:bg-black text-zinc-300 hover:text-white opacity-0 group-hover:opacity-100 transition z-20 border border-zinc-700"
@@ -421,7 +463,7 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
               </button>
             </div>
 
-            {/* 音量スライダー */}
+            {/* 音量 */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => onUpdateChannel({ isMuted: !channel.isMuted })}
@@ -463,7 +505,7 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
             </button>
           </div>
 
-          {/* 【横向きオーディオメーター】 */}
+          {/* 横向きオーディオメーター */}
           <div className="pt-1">
             <AudioMonitor
               sourceElement={
@@ -479,7 +521,7 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
           </div>
         </div>
 
-        {/* 右側: 【大型ベクトルスコープ（線表示 190px）】 */}
+        {/* 右側: 大型ベクトルスコープ（線表示 190px） */}
         <div className="w-full lg:w-[210px] flex flex-col flex-shrink-0">
           <Vectorscope
             sourceElement={activeMediaElement}
@@ -490,7 +532,7 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
         </div>
       </div>
 
-      {/* 下部: 【アウトプットごとのタイムライン（ドラッグ＆ドロップ受け入れ）】 */}
+      {/* 下部: タイムライン */}
       <div className="p-2.5 pt-0 bg-surface-card/60">
         <OutputTimeline
           channelId={channel.id}
@@ -506,6 +548,27 @@ export const OutputChannelCard: React.FC<OutputChannelCardProps> = ({
           }
         />
       </div>
+
+      {/* DeckLink & AJA ハードウェア設定モーダル */}
+      <HardwareConfigModal
+        isOpen={isConfigModalOpen}
+        channelId={channel.id}
+        config={
+          channel.hardwareOutput || {
+            enabled: false,
+            brand: 'Blackmagic DeckLink',
+            model: 'DeckLink Duo 2',
+            port: channel.id,
+            videoStandard: '1080p59.94',
+            colorFormat: '10-bit YUV 4:2:2',
+            status: 'standby',
+            genlock: 'Ref In',
+          }
+        }
+        isBridgeConnected={isBridgeConnected}
+        onClose={() => setIsConfigModalOpen(false)}
+        onSave={handleSaveHardwareConfig}
+      />
     </div>
   );
 };
